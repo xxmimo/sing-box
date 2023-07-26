@@ -5,9 +5,9 @@ import (
 	"io"
 	"net"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/urltest"
-	"github.com/sagernet/sing-box/outbound"
+	"github.com/inazumav/sing-box/adapter"
+	"github.com/inazumav/sing-box/common/urltest"
+	"github.com/inazumav/sing-box/outbound"
 	"github.com/sagernet/sing/common/rw"
 	"github.com/sagernet/sing/service"
 )

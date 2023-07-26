@@ -2,16 +2,16 @@ package libbox
 
 import (
 	"context"
+	box "github.com/inazumav/sing-box"
 	"net/netip"
 	"syscall"
 
-	"github.com/sagernet/sing-box"
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/process"
-	"github.com/sagernet/sing-box/common/urltest"
-	"github.com/sagernet/sing-box/experimental/libbox/internal/procfs"
-	"github.com/sagernet/sing-box/experimental/libbox/platform"
-	"github.com/sagernet/sing-box/option"
+	"github.com/inazumav/sing-box/adapter"
+	"github.com/inazumav/sing-box/common/process"
+	"github.com/inazumav/sing-box/common/urltest"
+	"github.com/inazumav/sing-box/experimental/libbox/internal/procfs"
+	"github.com/inazumav/sing-box/experimental/libbox/platform"
+	"github.com/inazumav/sing-box/option"
 	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/control"
