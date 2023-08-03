@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"github.com/inazumav/sing-box/option"
 	"net"
 	"net/netip"
 
@@ -53,6 +54,7 @@ type Router interface {
 	SetV2RayServer(server V2RayServer)
 	AddInbound(in Inbound) error
 	DelInbound(tag string) error
+	UpdateDnsRules(rules []option.DNSRule) error
 	ResetNetwork() error
 }
 
