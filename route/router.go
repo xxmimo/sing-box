@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/inazumav/sing-box/adapter"
@@ -83,6 +84,7 @@ type Router struct {
 	clashServer                        adapter.ClashServer
 	v2rayServer                        adapter.V2RayServer
 	platformInterface                  platform.Interface
+	actionLock                         sync.RWMutex
 }
 
 func NewRouter(
@@ -324,6 +326,8 @@ func NewRouter(
 }
 
 func (r *Router) AddInbound(inbound adapter.Inbound) error {
+	r.actionLock.Lock()
+	defer r.actionLock.Unlock()
 	if _, ok := r.inboundByTag[inbound.Tag()]; ok {
 		return errors.New("the inbound is exist")
 	}
@@ -332,10 +336,39 @@ func (r *Router) AddInbound(inbound adapter.Inbound) error {
 }
 
 func (r *Router) DelInbound(tag string) error {
+	r.actionLock.Lock()
+	defer r.actionLock.Unlock()
 	if _, ok := r.inboundByTag[tag]; ok {
 		delete(r.inboundByTag, tag)
 	} else {
 		return errors.New("the inbound not have")
+	}
+	return nil
+}
+
+func (r *Router) UpdateDnsRules(rules []option.DNSRule) error {
+	dnsRules := make([]adapter.DNSRule, 0, len(rules))
+	for i, rule := range rules {
+		dnsRule, err := NewDNSRule(r, r.logger, rule)
+		if err != nil {
+			return E.Cause(err, "parse dns rule[", i, "]")
+		}
+		err = dnsRule.Start()
+		if err != nil {
+			return E.Cause(err, "initialize DNS rule[", i, "]")
+		}
+		dnsRules = append(dnsRules, dnsRule)
+	}
+	var tempRules []adapter.DNSRule
+	r.actionLock.Lock()
+	r.dnsRules = tempRules
+	r.dnsRules = dnsRules
+	r.actionLock.Unlock()
+	for i, rule := range tempRules {
+		err := rule.Close()
+		if err != nil {
+			return E.Cause(err, "closing DNS rule[", i, "]")
+		}
 	}
 	return nil
 }
