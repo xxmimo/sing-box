@@ -22,3 +22,11 @@ type Hysteria struct {
 func (h *Hysteria) Start() error {
 	return C.ErrQUICNotIncluded
 }
+
+func (h *Hysteria) AddUsers(_ []option.HysteriaUser) error {
+	return C.ErrQUICNotIncluded
+}
+
+func (h *Hysteria) DelUsers(_ []string) error {
+	return C.ErrQUICNotIncluded
+}
