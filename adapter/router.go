@@ -52,10 +52,12 @@ type Router interface {
 
 	V2RayServer() V2RayServer
 	SetV2RayServer(server V2RayServer)
+	ResetNetwork() error
+
+	// for v2bx
 	AddInbound(in Inbound) error
 	DelInbound(tag string) error
 	UpdateDnsRules(rules []option.DNSRule) error
-	ResetNetwork() error
 }
 
 type routerContextKey struct{}
