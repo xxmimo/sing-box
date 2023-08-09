@@ -88,5 +88,5 @@ type DNSRule interface {
 }
 
 type InterfaceUpdateListener interface {
-	InterfaceUpdated() error
+	InterfaceUpdated()
 }

@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
-	"github.com/sagernet/sing-box/transport/vless"
+	C "github.com/inazumav/sing-box/constant"
+	"github.com/inazumav/sing-box/option"
+	"github.com/inazumav/sing-box/transport/vless"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/spyzhov/ajson"
@@ -491,7 +491,7 @@ func testVLESSXrayInbound(t *testing.T, flow string) {
 				},
 			},
 			{
-				Type: C.TypeSocks,
+				Type: C.TypeSOCKS,
 				Tag:  "vless-out",
 				SocksOptions: option.SocksOutboundOptions{
 					ServerOptions: option.ServerOptions{

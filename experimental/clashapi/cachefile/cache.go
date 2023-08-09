@@ -17,12 +17,13 @@ var bucketSelected = []byte("selected")
 var _ adapter.ClashCacheFile = (*CacheFile)(nil)
 
 type CacheFile struct {
-	DB           *bbolt.DB
-	cacheID      []byte
-	saveAccess   sync.RWMutex
-	saveDomain   map[netip.Addr]string
-	saveAddress4 map[string]netip.Addr
-	saveAddress6 map[string]netip.Addr
+	DB                *bbolt.DB
+	cacheID           []byte
+	saveAccess        sync.RWMutex
+	saveDomain        map[netip.Addr]string
+	saveAddress4      map[string]netip.Addr
+	saveAddress6      map[string]netip.Addr
+	saveMetadataTimer *time.Timer
 }
 
 func Open(path string, cacheID string) (*CacheFile, error) {
@@ -45,11 +46,24 @@ func Open(path string, cacheID string) (*CacheFile, error) {
 	}
 	err = db.Batch(func(tx *bbolt.Tx) error {
 		return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-			bucketName := string(name)
-			if !(bucketName == string(bucketSelected) || strings.HasPrefix(bucketName, fakeipBucketPrefix)) {
-				delErr := tx.DeleteBucket(name)
-				if delErr != nil {
-					return delErr
+			if name[0] == 0 {
+				return b.ForEachBucket(func(k []byte) error {
+					bucketName := string(k)
+					if !(bucketName == string(bucketSelected)) {
+						delErr := b.DeleteBucket(name)
+						if delErr != nil {
+							return delErr
+						}
+					}
+					return nil
+				})
+			} else {
+				bucketName := string(name)
+				if !(bucketName == string(bucketSelected) || strings.HasPrefix(bucketName, fakeipBucketPrefix)) {
+					delErr := tx.DeleteBucket(name)
+					if delErr != nil {
+						return delErr
+					}
 				}
 			}
 			return nil

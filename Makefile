@@ -7,7 +7,7 @@ GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 VERSION=$(shell CGO_ENABLED=0 GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) go run ./cmd/internal/read_tag)
 
-PARAMS = -v -trimpath -tags "$(TAGS)" -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=$(VERSION)' -s -w -buildid="
+PARAMS = -v -trimpath -tags "$(TAGS)" -ldflags "-X 'github.com/inazumav/sing-box/constant.Version=$(VERSION)' -s -w -buildid="
 MAIN = ./cmd/sing-box
 PREFIX ?= $(shell go env GOPATH)
 
@@ -89,8 +89,8 @@ lib:
 
 lib_install:
 	go get -v -d
-	go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.0.0-20230701084532-493ee2e45182
-	go install -v github.com/sagernet/gomobile/cmd/gobind@v0.0.0-20230701084532-493ee2e45182
+	go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.0.0-20230728014906-3de089147f59
+	go install -v github.com/sagernet/gomobile/cmd/gobind@v0.0.0-20230728014906-3de089147f59
 
 clean:
 	rm -rf bin dist sing-box

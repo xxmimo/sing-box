@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/log"
+	"github.com/inazumav/sing-box/log"
 	"github.com/sagernet/sing/common/control"
 	F "github.com/sagernet/sing/common/format"
 
@@ -38,6 +38,8 @@ const (
 	ImageShadowsocksR          = "teddysun/shadowsocks-r:latest"
 	ImageXRayCore              = "teddysun/xray:latest"
 	ImageShadowsocksLegacy     = "mritd/shadowsocks:latest"
+	ImageTUICServer            = ""
+	ImageTUICClient            = ""
 )
 
 var allImages = []string{
@@ -53,6 +55,8 @@ var allImages = []string{
 	ImageShadowsocksR,
 	ImageXRayCore,
 	ImageShadowsocksLegacy,
+	// ImageTUICServer,
+	// ImageTUICClient,
 }
 
 var localIP = netip.MustParseAddr("127.0.0.1")
