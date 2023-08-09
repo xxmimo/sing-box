@@ -14,3 +14,11 @@ import (
 func NewHysteria(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.HysteriaInboundOptions) (adapter.Inbound, error) {
 	return nil, C.ErrQUICNotIncluded
 }
+
+type Hysteria struct {
+	adapter.Inbound
+}
+
+func (h *Hysteria) Start() error {
+	return C.ErrQUICNotIncluded
+}
