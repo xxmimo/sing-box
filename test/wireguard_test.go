@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
+	C "github.com/inazumav/sing-box/constant"
+	"github.com/inazumav/sing-box/option"
 )
 
 func _TestWireGuard(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
+	"github.com/inazumav/sing-box"
+	C "github.com/inazumav/sing-box/constant"
+	"github.com/inazumav/sing-box/option"
 	"github.com/sagernet/sing/common/bufio"
 	"github.com/sagernet/sing/common/debug"
 	M "github.com/sagernet/sing/common/metadata"

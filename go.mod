@@ -22,15 +22,15 @@ require (
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/sagernet/cloudflare-tls v0.0.0-20221031050923-d70792f4c3a0
 	github.com/sagernet/gomobile v0.0.0-20230701084532-493ee2e45182
-	github.com/sagernet/quic-go v0.0.0-20230615020047-10f05c797c02
+	github.com/sagernet/quic-go v0.0.0-20230809023643-d720ed35ac2b
 	github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691
-	github.com/sagernet/sing v0.2.9
+	github.com/sagernet/sing v0.2.10-0.20230807080248-4db0062caa0a
 	github.com/sagernet/sing-dns v0.1.8
 	github.com/sagernet/sing-mux v0.1.2
 	github.com/sagernet/sing-shadowsocks v0.2.4
 	github.com/sagernet/sing-shadowsocks2 v0.1.3
 	github.com/sagernet/sing-shadowtls v0.1.4
-	github.com/sagernet/sing-tun v0.1.10-0.20230723061951-767ce42377f1
+	github.com/sagernet/sing-tun v0.1.12-0.20230808120247-47ab78d303db
 	github.com/sagernet/sing-vmess v0.1.7
 	github.com/sagernet/smux v0.0.0-20230312102458-337ec2a5af37
 	github.com/sagernet/tfo-go v0.0.0-20230303015439-ffcfd8c41cf9

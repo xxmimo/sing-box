@@ -3,13 +3,13 @@
 sing-box 需要 Golang **1.18.5** 或更高版本。
 
 ```bash
-go install -v github.com/sagernet/sing-box/cmd/sing-box@latest
+go install -v github.com/inazumav/sing-box/cmd/sing-box@latest
 ```
 
 自定义安装：
 
 ```bash
-go install -v -tags with_clash_api github.com/sagernet/sing-box/cmd/sing-box@latest
+go install -v -tags with_clash_api github.com/inazumav/sing-box/cmd/sing-box@latest
 ```
 
 | 构建标志                         | 描述                                                                                                                                                                                                                                                                      |
