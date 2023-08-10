@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"github.com/inazumav/sing-box/option"
 	"github.com/sagernet/quic-go"
 	"io"
 	"net"
@@ -406,6 +407,19 @@ func (s *serverSession) closeWithError(err error) {
 		s.logger.Error(E.Cause(err, "connection failed"))
 	}
 	_ = s.quicConn.CloseWithError(0, "")
+}
+
+func (s *Server) UpdateUsers(userList []option.TUICUser) {
+	userMap := map[uuid.UUID]User{}
+	for _, userName := range userList {
+		userID := uuid.FromStringOrNil(userName.UUID)
+		userMap[userID] = User{
+			Name:     userID.String(),
+			UUID:     userID,
+			Password: userName.Password,
+		}
+	}
+	s.userMap = userMap
 }
 
 type serverConn struct {
