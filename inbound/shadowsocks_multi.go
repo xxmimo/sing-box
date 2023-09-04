@@ -89,18 +89,22 @@ func newShadowsocksMulti(ctx context.Context, router adapter.Router, logger log.
 }
 
 func (h *ShadowsocksMulti) AddUsers(users []option.ShadowsocksUser) error {
-	temp := make([]option.ShadowsocksUser, 0, len(h.users)+len(users))
-	temp = append(temp, h.users...)
-	temp = append(temp, users...)
-	err := h.service.UpdateUsersWithPasswords(common.MapIndexed(temp, func(index int, user option.ShadowsocksUser) int {
+	if cap(h.users)-len(h.users) >= len(users) {
+		h.users = append(h.users, users...)
+	} else {
+		tmp := make([]option.ShadowsocksUser, 0, len(h.users)+len(users)+10)
+		tmp = append(tmp, h.users...)
+		tmp = append(tmp, users...)
+		h.users = tmp
+	}
+	err := h.service.UpdateUsersWithPasswords(common.MapIndexed(h.users, func(index int, user option.ShadowsocksUser) int {
 		return index
-	}), common.Map(temp, func(user option.ShadowsocksUser) string {
+	}), common.Map(h.users, func(user option.ShadowsocksUser) string {
 		return user.Password
 	}))
 	if err != nil {
 		return err
 	}
-	h.users = temp
 	return nil
 }
 

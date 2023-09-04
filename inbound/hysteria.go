@@ -17,11 +17,8 @@ import (
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/auth"
 	E "github.com/sagernet/sing/common/exceptions"
-	F "github.com/sagernet/sing/common/format"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
-
-	"golang.org/x/exp/slices"
 )
 
 var _ adapter.Inbound = (*Hysteria)(nil)
@@ -30,8 +27,7 @@ type Hysteria struct {
 	myInboundAdapter
 	quicConfig   *quic.Config
 	tlsConfig    tls.ServerConfig
-	authKey      []string
-	authUser     []string
+	users        map[string]string // map[password]name
 	xplusKey     []byte
 	sendBPS      uint64
 	recvBPS      uint64
@@ -65,16 +61,14 @@ func NewHysteria(ctx context.Context, router adapter.Router, logger log.ContextL
 	if quicConfig.MaxIncomingStreams == 0 {
 		quicConfig.MaxIncomingStreams = hysteria.DefaultMaxIncomingStreams
 	}
-	authKey := common.Map(options.Users, func(it option.HysteriaUser) string {
-		if len(it.Auth) > 0 {
-			return string(it.Auth)
+	users := make(map[string]string, len(options.Users))
+	for _, u := range options.Users {
+		if len(u.Auth) > 0 {
+			users[string(u.Auth)] = u.Name
 		} else {
-			return it.AuthString
+			users[u.AuthString] = u.Name
 		}
-	})
-	authUser := common.Map(options.Users, func(it option.HysteriaUser) string {
-		return it.Name
-	})
+	}
 	var xplus []byte
 	if options.Obfs != "" {
 		xplus = []byte(options.Obfs)
@@ -113,8 +107,7 @@ func NewHysteria(ctx context.Context, router adapter.Router, logger log.ContextL
 			listenOptions: options.ListenOptions,
 		},
 		quicConfig:  quicConfig,
-		authKey:     authKey,
-		authUser:    authUser,
+		users:       users,
 		xplusKey:    xplus,
 		sendBPS:     up,
 		recvBPS:     down,
@@ -187,20 +180,20 @@ func (h *Hysteria) accept(ctx context.Context, conn quic.Connection) error {
 	if err != nil {
 		return err
 	}
-	if len(h.authKey) > 0 {
-		userIndex := slices.Index(h.authKey, string(clientHello.Auth))
-		if userIndex == -1 {
+	if len(h.users) > 0 {
+		var user string
+		if u, ok := h.users[string(clientHello.Auth)]; ok {
+			user = u
+			if user == "" {
+				user = string(clientHello.Auth)
+			}
+		} else {
 			err = hysteria.WriteServerHello(controlStream, hysteria.ServerHello{
 				Message: "wrong password",
 			})
 			return E.Errors(E.New("wrong password: ", string(clientHello.Auth)), err)
 		}
-		user := h.authUser[userIndex]
-		if user == "" {
-			user = F.ToString(userIndex)
-		} else {
-			ctx = auth.ContextWithUser(ctx, user)
-		}
+		ctx = auth.ContextWithUser(ctx, user)
 		h.logger.InfoContext(ctx, "[", user, "] inbound connection from ", conn.RemoteAddr())
 	} else {
 		h.logger.InfoContext(ctx, "inbound connection from ", conn.RemoteAddr())
@@ -325,48 +318,19 @@ func (h *Hysteria) acceptStream(ctx context.Context, conn quic.Connection, strea
 }
 
 func (h *Hysteria) AddUsers(users []option.HysteriaUser) error {
-	tmp := make([]string, 0, len(h.authKey)+len(users))
-	tmp = append(tmp, h.authKey...)
-	tmp = append(tmp, common.Map(users, func(it option.HysteriaUser) string {
-		if len(it.Auth) > 0 {
-			return string(it.Auth)
+	for _, u := range users {
+		if len(u.Auth) > 0 {
+			h.users[string(u.Auth)] = u.Name
 		} else {
-			return it.AuthString
+			h.users[u.AuthString] = u.Name
 		}
-	})...)
-	h.authKey = tmp
-	tmp = make([]string, 0, len(h.authKey)+len(users))
-	tmp = append(tmp, h.authUser...)
-	tmp = append(tmp, common.Map(users, func(it option.HysteriaUser) string {
-		return it.Name
-	})...)
-	h.authUser = tmp
+	}
 	return nil
 }
 
 func (h *Hysteria) DelUsers(names []string) error {
-	ins := make([]int, 0, len(names))
-	ulen := len(names)
-	for i := range h.authUser {
-		for _, s := range names {
-			if h.authUser[i] == s {
-				ins = append(ins, i)
-				ulen--
-			}
-			if ulen == 0 {
-				break
-			}
-		}
-	}
-	ulen = len(h.authKey)
-	for _, i := range ins {
-		h.authKey[i] = h.authKey[ulen-1]
-		h.authKey[ulen-1] = ""
-		h.authKey = h.authKey[:ulen-1]
-		h.authUser[i] = h.authUser[ulen-1]
-		h.authUser[i] = ""
-		h.authUser = h.authUser[:ulen-1]
-		ulen--
+	for _, n := range names {
+		delete(h.users, n)
 	}
 	return nil
 }

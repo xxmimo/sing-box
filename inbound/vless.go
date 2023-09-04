@@ -115,17 +115,21 @@ func (h *VLESS) Start() error {
 }
 
 func (h *VLESS) AddUsers(users []option.VLESSUser) error {
-	tmp := make([]option.VLESSUser, 0, len(h.users)+len(users))
-	tmp = append(tmp, h.users...)
-	tmp = append(tmp, users...)
-	h.service.UpdateUsers(common.MapIndexed(tmp, func(index int, it option.VLESSUser) int {
+	if cap(h.users)-len(h.users) >= len(users) {
+		h.users = append(h.users, users...)
+	} else {
+		tmp := make([]option.VLESSUser, 0, len(h.users)+len(users)+10)
+		tmp = append(tmp, h.users...)
+		tmp = append(tmp, users...)
+		h.users = tmp
+	}
+	h.service.UpdateUsers(common.MapIndexed(h.users, func(index int, it option.VLESSUser) int {
 		return index
-	}), common.Map(tmp, func(it option.VLESSUser) string {
+	}), common.Map(h.users, func(it option.VLESSUser) string {
 		return it.UUID
-	}), common.Map(tmp, func(it option.VLESSUser) string {
+	}), common.Map(h.users, func(it option.VLESSUser) string {
 		return it.Flow
 	}))
-	h.users = tmp
 	return nil
 }
 

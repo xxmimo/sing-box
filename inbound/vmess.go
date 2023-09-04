@@ -123,20 +123,24 @@ func (h *VMess) Start() error {
 }
 
 func (h *VMess) AddUsers(users []option.VMessUser) error {
-	tmp := make([]option.VMessUser, 0, len(h.users)+len(users))
-	tmp = append(tmp, h.users...)
-	tmp = append(tmp, users...)
-	err := h.service.UpdateUsers(common.MapIndexed(tmp, func(index int, it option.VMessUser) int {
+	if cap(h.users)-len(h.users) >= len(users) {
+		h.users = append(h.users, users...)
+	} else {
+		tmp := make([]option.VMessUser, 0, len(h.users)+len(users)+10)
+		tmp = append(tmp, h.users...)
+		tmp = append(tmp, users...)
+		h.users = tmp
+	}
+	err := h.service.UpdateUsers(common.MapIndexed(h.users, func(index int, it option.VMessUser) int {
 		return index
-	}), common.Map(tmp, func(it option.VMessUser) string {
+	}), common.Map(h.users, func(it option.VMessUser) string {
 		return it.UUID
-	}), common.Map(tmp, func(it option.VMessUser) int {
+	}), common.Map(h.users, func(it option.VMessUser) int {
 		return it.AlterId
 	}))
 	if err != nil {
 		return err
 	}
-	h.users = tmp
 	return nil
 }
 

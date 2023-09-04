@@ -145,18 +145,22 @@ func (h *Trojan) Close() error {
 }
 
 func (h *Trojan) AddUsers(users []option.TrojanUser) error {
-	tmp := make([]option.TrojanUser, 0, len(h.users)+len(users))
-	tmp = append(tmp, h.users...)
-	tmp = append(tmp, users...)
-	err := h.service.UpdateUsers(common.MapIndexed(tmp, func(index int, user option.TrojanUser) int {
+	if cap(h.users)-len(h.users) >= len(users) {
+		h.users = append(h.users, users...)
+	} else {
+		tmp := make([]option.TrojanUser, 0, len(h.users)+len(users)+10)
+		tmp = append(tmp, h.users...)
+		tmp = append(tmp, users...)
+		h.users = tmp
+	}
+	err := h.service.UpdateUsers(common.MapIndexed(h.users, func(index int, user option.TrojanUser) int {
 		return index
-	}), common.Map(tmp, func(user option.TrojanUser) string {
+	}), common.Map(h.users, func(user option.TrojanUser) string {
 		return user.Password
 	}))
 	if err != nil {
 		return err
 	}
-	h.users = tmp
 	return nil
 }
 
