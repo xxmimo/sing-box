@@ -9,6 +9,6 @@ brew install sing-box
 ## Homebrew (Tap)
 
 ```shell
-brew tap sagernet/sing-box
-brew install sagernet/sing-box/sing-box
+brew tap inazumav/sing-box
+brew install inazumav/sing-box/sing-box
 ```

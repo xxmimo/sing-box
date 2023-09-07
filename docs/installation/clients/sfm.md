@@ -16,7 +16,7 @@ Experimental macOS client for sing-box.
 
 * [GitHub Release](https://github.com/SagerNet/sing-box/releases/latest)
 * Homebrew (Cask): `brew install sfm`
-* Homebrew (Tap): `brew tap sagernet/sing-box && brew install sagernet/sing-box/sfm`
+* Homebrew (Tap): `brew tap inazumav/sing-box && brew install inazumav/sing-box/sfm`
 
 #### Note
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"github.com/sagernet/quic-go"
 	"io"
 	"math"
 	"net"
@@ -12,9 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sagernet/quic-go"
+	"github.com/inazumav/sing-box/transport/hysteria2/internal/protocol"
 	"github.com/sagernet/quic-go/quicvarint"
-	"github.com/sagernet/sing-box/transport/hysteria2/internal/protocol"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/atomic"
 	"github.com/sagernet/sing/common/buf"

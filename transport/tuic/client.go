@@ -4,6 +4,7 @@ package tuic
 
 import (
 	"context"
+	"github.com/sagernet/quic-go"
 	"io"
 	"net"
 	"os"
@@ -11,10 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sagernet/quic-go"
-	"github.com/sagernet/sing-box/common/baderror"
-	"github.com/sagernet/sing-box/common/qtls"
-	"github.com/sagernet/sing-box/common/tls"
+	"github.com/inazumav/sing-box/common/baderror"
+	"github.com/inazumav/sing-box/common/qtls"
+	"github.com/inazumav/sing-box/common/tls"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"

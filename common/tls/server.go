@@ -4,9 +4,9 @@ import (
 	"context"
 	"net"
 
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	C "github.com/inazumav/sing-box/constant"
+	"github.com/inazumav/sing-box/log"
+	"github.com/inazumav/sing-box/option"
 	aTLS "github.com/sagernet/sing/common/tls"
 )
 

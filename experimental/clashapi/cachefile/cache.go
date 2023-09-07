@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/inazumav/sing-box/adapter"
 	"github.com/sagernet/sing/common"
 
 	"go.etcd.io/bbolt"

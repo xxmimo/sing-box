@@ -2,6 +2,7 @@ package hysteria2
 
 import (
 	"context"
+	"github.com/sagernet/quic-go"
 	"io"
 	"net"
 	"net/http"
@@ -10,14 +11,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sagernet/quic-go"
+	"github.com/inazumav/sing-box/common/baderror"
+	"github.com/inazumav/sing-box/common/qtls"
+	"github.com/inazumav/sing-box/common/tls"
+	"github.com/inazumav/sing-box/transport/hysteria2/congestion"
+	"github.com/inazumav/sing-box/transport/hysteria2/internal/protocol"
+	tuicCongestion "github.com/inazumav/sing-box/transport/tuic/congestion"
 	"github.com/sagernet/quic-go/http3"
-	"github.com/sagernet/sing-box/common/baderror"
-	"github.com/sagernet/sing-box/common/qtls"
-	"github.com/sagernet/sing-box/common/tls"
-	"github.com/sagernet/sing-box/transport/hysteria2/congestion"
-	"github.com/sagernet/sing-box/transport/hysteria2/internal/protocol"
-	tuicCongestion "github.com/sagernet/sing-box/transport/tuic/congestion"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/auth"
 	E "github.com/sagernet/sing/common/exceptions"

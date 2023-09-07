@@ -10,9 +10,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/inazumav/sing-box/log"
+	"github.com/inazumav/sing-box/option"
 	cftls "github.com/sagernet/cloudflare-tls"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/ntp"
 

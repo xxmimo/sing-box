@@ -7,10 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/sagernet/cloudflare-tls"
-	"github.com/sagernet/quic-go/ech"
-	"github.com/sagernet/quic-go/http3_ech"
-	"github.com/sagernet/sing-box/common/qtls"
+	"github.com/inazumav/sing-box/common/qtls"
 	M "github.com/sagernet/sing/common/metadata"
 )
 

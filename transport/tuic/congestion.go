@@ -2,10 +2,10 @@ package tuic
 
 import (
 	"context"
+	"github.com/sagernet/quic-go"
 	"time"
 
-	"github.com/sagernet/quic-go"
-	"github.com/sagernet/sing-box/transport/tuic/congestion"
+	"github.com/inazumav/sing-box/transport/tuic/congestion"
 	"github.com/sagernet/sing/common/ntp"
 )
 

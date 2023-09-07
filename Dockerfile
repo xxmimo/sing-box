@@ -1,7 +1,7 @@
 FROM golang:1.21-alpine AS builder
 LABEL maintainer="nekohasekai <contact-git@sekai.icu>"
-COPY . /go/src/github.com/sagernet/sing-box
-WORKDIR /go/src/github.com/sagernet/sing-box
+COPY . /go/src/github.com/inazumav/sing-box
+WORKDIR /go/src/github.com/inazumav/sing-box
 ARG GOPROXY=""
 ENV GOPROXY ${GOPROXY}
 ENV CGO_ENABLED=0
