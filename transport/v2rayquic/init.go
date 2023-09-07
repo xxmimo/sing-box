@@ -1,3 +1,5 @@
+//go:build with_quic
+
 package v2rayquic
 
 import "github.com/inazumav/sing-box/transport/v2ray"

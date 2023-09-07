@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inazumav/sing-box/log"
+	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing/common/control"
 	F "github.com/sagernet/sing/common/format"
 
@@ -32,14 +32,15 @@ const (
 	ImageTrojan                = "trojangfw/trojan:latest"
 	ImageNaive                 = "pocat/naiveproxy:client"
 	ImageBoringTun             = "ghcr.io/ntkme/boringtun:edge"
-	ImageHysteria              = "tobyxdd/hysteria:latest"
+	ImageHysteria              = "tobyxdd/hysteria:v1.3.5"
+	ImageHysteria2             = "tobyxdd/hysteria:v2"
 	ImageNginx                 = "nginx:stable"
 	ImageShadowTLS             = "ghcr.io/ihciah/shadow-tls:latest"
 	ImageShadowsocksR          = "teddysun/shadowsocks-r:latest"
 	ImageXRayCore              = "teddysun/xray:latest"
 	ImageShadowsocksLegacy     = "mritd/shadowsocks:latest"
-	ImageTUICServer            = ""
-	ImageTUICClient            = ""
+	ImageTUICServer            = "kilvn/tuic-server:latest"
+	ImageTUICClient            = "kilvn/tuic-client:latest"
 )
 
 var allImages = []string{
@@ -50,13 +51,14 @@ var allImages = []string{
 	ImageNaive,
 	ImageBoringTun,
 	ImageHysteria,
+	ImageHysteria2,
 	ImageNginx,
 	ImageShadowTLS,
 	ImageShadowsocksR,
 	ImageXRayCore,
 	ImageShadowsocksLegacy,
-	// ImageTUICServer,
-	// ImageTUICClient,
+	ImageTUICServer,
+	ImageTUICClient,
 }
 
 var localIP = netip.MustParseAddr("127.0.0.1")
@@ -364,6 +366,10 @@ func testLargeDataWithConn(t *testing.T, port uint16, cc func() (net.Conn, error
 }
 
 func testLargeDataWithPacketConn(t *testing.T, port uint16, pcc func() (net.PacketConn, error)) error {
+	return testLargeDataWithPacketConnSize(t, port, 1024, pcc)
+}
+
+func testLargeDataWithPacketConnSize(t *testing.T, port uint16, chunkSize int, pcc func() (net.PacketConn, error)) error {
 	l, err := listenPacket("udp", ":"+F.ToString(port))
 	if err != nil {
 		return err
@@ -372,8 +378,7 @@ func testLargeDataWithPacketConn(t *testing.T, port uint16, pcc func() (net.Pack
 
 	rAddr := &net.UDPAddr{IP: localIP.AsSlice(), Port: int(port)}
 
-	times := 50
-	chunkSize := int64(1024)
+	times := 2
 
 	pingCh, pongCh, test := newLargeDataPair()
 	writeRandData := func(pc net.PacketConn, addr net.Addr) (map[int][]byte, error) {

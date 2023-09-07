@@ -8,18 +8,19 @@ import (
 	"os"
 	"time"
 
-	"github.com/inazumav/sing-box/adapter"
-	"github.com/inazumav/sing-box/common/dialer"
-	"github.com/inazumav/sing-box/common/tls"
-	C "github.com/inazumav/sing-box/constant"
-	"github.com/inazumav/sing-box/log"
-	"github.com/inazumav/sing-box/option"
-	"github.com/inazumav/sing-box/transport/tuic"
+	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/dialer"
+	"github.com/sagernet/sing-box/common/tls"
+	C "github.com/sagernet/sing-box/constant"
+	"github.com/sagernet/sing-box/log"
+	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing-box/transport/tuic"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
+	"github.com/sagernet/sing/common/uot"
 
 	"github.com/gofrs/uuid/v5"
 )
@@ -31,7 +32,8 @@ var (
 
 type TUIC struct {
 	myOutboundAdapter
-	client *tuic.Client
+	client    *tuic.Client
+	udpStream bool
 }
 
 func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TUICOutboundOptions) (*TUIC, error) {
@@ -39,11 +41,7 @@ func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogge
 	if options.TLS == nil || !options.TLS.Enabled {
 		return nil, C.ErrTLSRequired
 	}
-	abstractTLSConfig, err := tls.NewClient(router, options.Server, common.PtrValueOrDefault(options.TLS))
-	if err != nil {
-		return nil, err
-	}
-	tlsConfig, err := abstractTLSConfig.Config()
+	tlsConfig, err := tls.NewClient(ctx, options.Server, common.PtrValueOrDefault(options.TLS))
 	if err != nil {
 		return nil, err
 	}
@@ -51,11 +49,14 @@ func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogge
 	if err != nil {
 		return nil, E.Cause(err, "invalid uuid")
 	}
-	var udpStream bool
+	var tuicUDPStream bool
+	if options.UDPOverStream && options.UDPRelayMode != "" {
+		return nil, E.New("udp_over_stream is conflict with udp_relay_mode")
+	}
 	switch options.UDPRelayMode {
 	case "native":
 	case "quic":
-		udpStream = true
+		tuicUDPStream = true
 	}
 	outboundDialer, err := dialer.New(router, options.DialerOptions)
 	if err != nil {
@@ -69,7 +70,7 @@ func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogge
 		UUID:              userUUID,
 		Password:          options.Password,
 		CongestionControl: options.CongestionControl,
-		UDPStream:         udpStream,
+		UDPStream:         tuicUDPStream,
 		ZeroRTTHandshake:  options.ZeroRTTHandshake,
 		Heartbeat:         time.Duration(options.Heartbeat),
 	})
@@ -85,7 +86,8 @@ func NewTUIC(ctx context.Context, router adapter.Router, logger log.ContextLogge
 			tag:          tag,
 			dependencies: withDialerDependency(options.DialerOptions),
 		},
-		client: client,
+		client:    client,
+		udpStream: options.UDPOverStream,
 	}, nil
 }
 
@@ -95,19 +97,43 @@ func (h *TUIC) DialContext(ctx context.Context, network string, destination M.So
 		h.logger.InfoContext(ctx, "outbound connection to ", destination)
 		return h.client.DialConn(ctx, destination)
 	case N.NetworkUDP:
-		conn, err := h.ListenPacket(ctx, destination)
-		if err != nil {
-			return nil, err
+		if h.udpStream {
+			h.logger.InfoContext(ctx, "outbound stream packet connection to ", destination)
+			streamConn, err := h.client.DialConn(ctx, uot.RequestDestination(uot.Version))
+			if err != nil {
+				return nil, err
+			}
+			return uot.NewLazyConn(streamConn, uot.Request{
+				IsConnect:   true,
+				Destination: destination,
+			}), nil
+		} else {
+			conn, err := h.ListenPacket(ctx, destination)
+			if err != nil {
+				return nil, err
+			}
+			return bufio.NewBindPacketConn(conn, destination), nil
 		}
-		return bufio.NewBindPacketConn(conn, destination), nil
 	default:
 		return nil, E.New("unsupported network: ", network)
 	}
 }
 
 func (h *TUIC) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
-	h.logger.InfoContext(ctx, "outbound packet connection to ", destination)
-	return h.client.ListenPacket(ctx)
+	if h.udpStream {
+		h.logger.InfoContext(ctx, "outbound stream packet connection to ", destination)
+		streamConn, err := h.client.DialConn(ctx, uot.RequestDestination(uot.Version))
+		if err != nil {
+			return nil, err
+		}
+		return uot.NewLazyConn(streamConn, uot.Request{
+			IsConnect:   false,
+			Destination: destination,
+		}), nil
+	} else {
+		h.logger.InfoContext(ctx, "outbound packet connection to ", destination)
+		return h.client.ListenPacket(ctx)
+	}
 }
 
 func (h *TUIC) NewConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext) error {

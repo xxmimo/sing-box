@@ -4,8 +4,8 @@ import (
 	"net/netip"
 	"testing"
 
-	C "github.com/inazumav/sing-box/constant"
-	"github.com/inazumav/sing-box/option"
+	C "github.com/sagernet/sing-box/constant"
+	"github.com/sagernet/sing-box/option"
 
 	"github.com/gofrs/uuid/v5"
 )
@@ -94,7 +94,7 @@ func testTUICSelf(t *testing.T, udpStream bool, zeroRTTHandshake bool) {
 			},
 		},
 	})
-	testSuit(t, clientPort, testPort)
+	testSuitLargeUDP(t, clientPort, testPort)
 }
 
 func TestTUICInbound(t *testing.T) {
@@ -130,6 +130,7 @@ func TestTUICInbound(t *testing.T) {
 			caPem:              "/etc/tuic/ca.pem",
 		},
 	})
+	testSuitLargeUDP(t, clientPort, testPort)
 }
 
 func TestTUICOutbound(t *testing.T) {
@@ -174,5 +175,5 @@ func TestTUICOutbound(t *testing.T) {
 			},
 		},
 	})
-	testSuit(t, clientPort, testPort)
+	testSuitLargeUDP(t, clientPort, testPort)
 }

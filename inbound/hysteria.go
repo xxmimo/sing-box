@@ -6,14 +6,15 @@ import (
 	"context"
 	"sync"
 
-	"github.com/inazumav/sing-box/adapter"
-	"github.com/inazumav/sing-box/common/tls"
-	C "github.com/inazumav/sing-box/constant"
-	"github.com/inazumav/sing-box/log"
-	"github.com/inazumav/sing-box/option"
-	"github.com/inazumav/sing-box/transport/hysteria"
 	"github.com/sagernet/quic-go"
 	"github.com/sagernet/quic-go/congestion"
+	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/qtls"
+	"github.com/sagernet/sing-box/common/tls"
+	C "github.com/sagernet/sing-box/constant"
+	"github.com/sagernet/sing-box/log"
+	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing-box/transport/hysteria"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/auth"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -31,7 +32,7 @@ type Hysteria struct {
 	xplusKey     []byte
 	sendBPS      uint64
 	recvBPS      uint64
-	listener     *quic.Listener
+	listener     qtls.QUICListener
 	udpAccess    sync.RWMutex
 	udpSessionId uint32
 	udpSessions  map[uint32]chan *hysteria.UDPMessage
@@ -119,7 +120,7 @@ func NewHysteria(ctx context.Context, router adapter.Router, logger log.ContextL
 	if len(options.TLS.ALPN) == 0 {
 		options.TLS.ALPN = []string{hysteria.DefaultALPN}
 	}
-	tlsConfig, err := tls.NewServer(ctx, router, logger, common.PtrValueOrDefault(options.TLS))
+	tlsConfig, err := tls.NewServer(ctx, logger, common.PtrValueOrDefault(options.TLS))
 	if err != nil {
 		return nil, err
 	}
@@ -140,11 +141,7 @@ func (h *Hysteria) Start() error {
 	if err != nil {
 		return err
 	}
-	rawConfig, err := h.tlsConfig.Config()
-	if err != nil {
-		return err
-	}
-	listener, err := quic.Listen(packetConn, rawConfig, h.quicConfig)
+	listener, err := qtls.Listen(packetConn, h.tlsConfig, h.quicConfig)
 	if err != nil {
 		return err
 	}
@@ -344,7 +341,7 @@ func (h *Hysteria) Close() error {
 	h.udpAccess.Unlock()
 	return common.Close(
 		&h.myInboundAdapter,
-		common.PtrOrNil(h.listener),
+		h.listener,
 		h.tlsConfig,
 	)
 }

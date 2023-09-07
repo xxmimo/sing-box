@@ -17,6 +17,7 @@ import (
 	"github.com/sagernet/sing/common/atomic"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/cache"
+	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 )
 
@@ -41,7 +42,6 @@ type udpMessage struct {
 	fragmentTotal uint8
 	fragmentID    uint8
 	destination   M.Socksaddr
-	dataLength    uint16
 	data          *buf.Buffer
 }
 
@@ -72,7 +72,7 @@ func (m *udpMessage) pack() *buf.Buffer {
 }
 
 func (m *udpMessage) headerSize() int {
-	return 2 + 10 + addressSerializer.AddrPortLen(m.destination)
+	return 10 + addressSerializer.AddrPortLen(m.destination)
 }
 
 func fragUDPMessage(message *udpMessage, maxPacketSize int) []*udpMessage {
@@ -106,18 +106,19 @@ func fragUDPMessage(message *udpMessage, maxPacketSize int) []*udpMessage {
 }
 
 type udpPacketConn struct {
-	ctx       context.Context
-	cancel    common.ContextCancelCauseFunc
-	sessionID uint16
-	quicConn  quic.Connection
-	data      chan *udpMessage
-	udpStream bool
-	udpMTU    int
-	packetId  atomic.Uint32
-	closeOnce sync.Once
-	isServer  bool
-	defragger *udpDefragger
-	onDestroy func()
+	ctx        context.Context
+	cancel     common.ContextCancelCauseFunc
+	sessionID  uint16
+	quicConn   quic.Connection
+	data       chan *udpMessage
+	udpStream  bool
+	udpMTU     int
+	udpMTUTime time.Time
+	packetId   atomic.Uint32
+	closeOnce  sync.Once
+	isServer   bool
+	defragger  *udpDefragger
+	onDestroy  func()
 }
 
 func newUDPPacketConn(ctx context.Context, quicConn quic.Connection, udpStream bool, isServer bool, onDestroy func()) *udpPacketConn {
@@ -186,6 +187,15 @@ func (c *udpPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	}
 }
 
+func (c *udpPacketConn) needFragment() bool {
+	nowTime := time.Now()
+	if c.udpMTU > 0 && nowTime.Sub(c.udpMTUTime) < 5*time.Second {
+		c.udpMTUTime = nowTime
+		return true
+	}
+	return false
+}
+
 func (c *udpPacketConn) WritePacket(buffer *buf.Buffer, destination M.Socksaddr) error {
 	defer buffer.Release()
 	select {
@@ -195,6 +205,9 @@ func (c *udpPacketConn) WritePacket(buffer *buf.Buffer, destination M.Socksaddr)
 	}
 	if buffer.Len() > 0xffff {
 		return quic.ErrMessageTooLarge(0xffff)
+	}
+	if !destination.IsValid() {
+		return E.New("invalid destination address")
 	}
 	packetId := c.packetId.Add(1)
 	if packetId > math.MaxUint16 {
@@ -211,7 +224,7 @@ func (c *udpPacketConn) WritePacket(buffer *buf.Buffer, destination M.Socksaddr)
 	}
 	defer message.releaseMessage()
 	var err error
-	if !c.udpStream && c.udpMTU > 0 && buffer.Len() > c.udpMTU {
+	if !c.udpStream && c.needFragment() && buffer.Len() > c.udpMTU {
 		err = c.writePackets(fragUDPMessage(message, c.udpMTU))
 	} else {
 		err = c.writePacket(message)
@@ -224,6 +237,7 @@ func (c *udpPacketConn) WritePacket(buffer *buf.Buffer, destination M.Socksaddr)
 		return err
 	}
 	c.udpMTU = int(tooLargeErr)
+	c.udpMTUTime = time.Now()
 	return c.writePackets(fragUDPMessage(message, c.udpMTU))
 }
 
@@ -236,6 +250,10 @@ func (c *udpPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	if len(p) > 0xffff {
 		return 0, quic.ErrMessageTooLarge(0xffff)
 	}
+	destination := M.SocksaddrFromNet(addr)
+	if !destination.IsValid() {
+		return 0, E.New("invalid destination address")
+	}
 	packetId := c.packetId.Add(1)
 	if packetId > math.MaxUint16 {
 		c.packetId.Store(0)
@@ -246,10 +264,10 @@ func (c *udpPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 		sessionID:     c.sessionID,
 		packetID:      uint16(packetId),
 		fragmentTotal: 1,
-		destination:   M.SocksaddrFromNet(addr),
+		destination:   destination,
 		data:          buf.As(p),
 	}
-	if c.udpMTU > 0 && len(p) > c.udpMTU {
+	if !c.udpStream && c.needFragment() && len(p) > c.udpMTU {
 		err = c.writePackets(fragUDPMessage(message, c.udpMTU))
 		if err == nil {
 			return len(p), nil
@@ -265,6 +283,7 @@ func (c *udpPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 		return
 	}
 	c.udpMTU = int(tooLargeErr)
+	c.udpMTUTime = time.Now()
 	err = c.writePackets(fragUDPMessage(message, c.udpMTU))
 	if err == nil {
 		return len(p), nil
@@ -414,10 +433,14 @@ func (d *udpDefragger) feed(m *udpMessage) *udpMessage {
 	}
 	newMessage := udpMessagePool.Get().(*udpMessage)
 	*newMessage = *item.messages[0]
-	if m.dataLength > 0 {
-		newMessage.data = buf.NewSize(int(m.dataLength))
+	var dataLength uint16
+	for _, message := range item.messages {
+		dataLength += uint16(message.data.Len())
+	}
+	if dataLength > 0 {
+		newMessage.data = buf.NewSize(int(dataLength))
 		for _, message := range item.messages {
-			newMessage.data.Write(message.data.Bytes())
+			common.Must1(newMessage.data.Write(message.data.Bytes()))
 			message.releaseMessage()
 		}
 		item.messages = nil
@@ -447,7 +470,8 @@ func readUDPMessage(message *udpMessage, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	err = binary.Read(reader, binary.BigEndian, &message.dataLength)
+	var dataLength uint16
+	err = binary.Read(reader, binary.BigEndian, &dataLength)
 	if err != nil {
 		return err
 	}
@@ -455,7 +479,7 @@ func readUDPMessage(message *udpMessage, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	message.data = buf.NewSize(int(message.dataLength))
+	message.data = buf.NewSize(int(dataLength))
 	_, err = message.data.ReadFullFrom(reader, message.data.FreeLen())
 	if err != nil {
 		return err
@@ -481,7 +505,8 @@ func decodeUDPMessage(message *udpMessage, data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = binary.Read(reader, binary.BigEndian, &message.dataLength)
+	var dataLength uint16
+	err = binary.Read(reader, binary.BigEndian, &dataLength)
 	if err != nil {
 		return err
 	}
@@ -489,7 +514,7 @@ func decodeUDPMessage(message *udpMessage, data []byte) error {
 	if err != nil {
 		return err
 	}
-	if reader.Len() != int(message.dataLength) {
+	if reader.Len() != int(dataLength) {
 		return io.ErrUnexpectedEOF
 	}
 	message.data = buf.As(data[len(data)-reader.Len():])

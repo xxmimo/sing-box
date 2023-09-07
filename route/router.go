@@ -74,7 +74,6 @@ type Router struct {
 	transportDomainStrategy            map[dns.Transport]dns.DomainStrategy
 	dnsReverseMapping                  *DNSReverseMapping
 	fakeIPStore                        adapter.FakeIPStore
-	fakeIPDualStack                    bool
 	interfaceFinder                    myInterfaceFinder
 	autoDetectInterface                bool
 	defaultInterface                   string
@@ -83,7 +82,7 @@ type Router struct {
 	interfaceMonitor                   tun.DefaultInterfaceMonitor
 	packageManager                     tun.PackageManager
 	processSearcher                    process.Searcher
-	timeService                        adapter.TimeService
+	timeService                        *ntp.Service
 	pauseManager                       pause.Manager
 	clashServer                        adapter.ClashServer
 	v2rayServer                        adapter.V2RayServer
@@ -262,7 +261,6 @@ func NewRouter(
 			inet6Range = fakeIPOptions.Inet6Range.Build()
 		}
 		router.fakeIPStore = fakeip.NewStore(router, router.logger, inet4Range, inet6Range)
-		router.fakeIPDualStack = inet4Range.IsValid() && inet6Range.IsValid()
 	}
 
 	usePlatformDefaultInterfaceMonitor := platformInterface != nil && platformInterface.UsePlatformDefaultInterfaceMonitor()
@@ -525,7 +523,7 @@ func (r *Router) Close() error {
 			return E.Cause(err, "close dns transport[", i, "]")
 		})
 	}
-	if r.geositeReader != nil {
+	if r.geoIPReader != nil {
 		r.logger.Trace("closing geoip reader")
 		err = E.Append(err, common.Close(r.geoIPReader), func(err error) error {
 			return E.Cause(err, "close geoip reader")
@@ -640,6 +638,7 @@ func (r *Router) RouteConnection(ctx context.Context, conn net.Conn, metadata ad
 		if !loaded {
 			return E.New("missing fakeip context")
 		}
+		metadata.OriginDestination = metadata.Destination
 		metadata.Destination = M.Socksaddr{
 			Fqdn: domain,
 			Port: metadata.Destination.Port,
@@ -743,13 +742,12 @@ func (r *Router) RoutePacketConnection(ctx context.Context, conn N.PacketConn, m
 	}
 	metadata.Network = N.NetworkUDP
 
-	var originAddress M.Socksaddr
 	if r.fakeIPStore != nil && r.fakeIPStore.Contains(metadata.Destination.Addr) {
 		domain, loaded := r.fakeIPStore.Lookup(metadata.Destination.Addr)
 		if !loaded {
 			return E.New("missing fakeip context")
 		}
-		originAddress = metadata.Destination
+		metadata.OriginDestination = metadata.Destination
 		metadata.Destination = M.Socksaddr{
 			Fqdn: domain,
 			Port: metadata.Destination.Port,
@@ -763,7 +761,7 @@ func (r *Router) RoutePacketConnection(ctx context.Context, conn N.PacketConn, m
 		conn = deadline.NewPacketConn(bufio.NewNetPacketConn(conn))
 	}*/
 
-	if metadata.InboundOptions.SniffEnabled {
+	if metadata.InboundOptions.SniffEnabled || metadata.Destination.Addr.IsUnspecified() {
 		buffer := buf.NewPacket()
 		buffer.FullReset()
 		destination, err := conn.ReadPacket(buffer)
@@ -771,20 +769,25 @@ func (r *Router) RoutePacketConnection(ctx context.Context, conn N.PacketConn, m
 			buffer.Release()
 			return err
 		}
-		sniffMetadata, _ := sniff.PeekPacket(ctx, buffer.Bytes(), sniff.DomainNameQuery, sniff.QUICClientHello, sniff.STUNMessage)
-		if sniffMetadata != nil {
-			metadata.Protocol = sniffMetadata.Protocol
-			metadata.Domain = sniffMetadata.Domain
-			if metadata.InboundOptions.SniffOverrideDestination && M.IsDomainName(metadata.Domain) {
-				metadata.Destination = M.Socksaddr{
-					Fqdn: metadata.Domain,
-					Port: metadata.Destination.Port,
+		if metadata.Destination.Addr.IsUnspecified() {
+			metadata.Destination = destination
+		}
+		if metadata.InboundOptions.SniffEnabled {
+			sniffMetadata, _ := sniff.PeekPacket(ctx, buffer.Bytes(), sniff.DomainNameQuery, sniff.QUICClientHello, sniff.STUNMessage)
+			if sniffMetadata != nil {
+				metadata.Protocol = sniffMetadata.Protocol
+				metadata.Domain = sniffMetadata.Domain
+				if metadata.InboundOptions.SniffOverrideDestination && M.IsDomainName(metadata.Domain) {
+					metadata.Destination = M.Socksaddr{
+						Fqdn: metadata.Domain,
+						Port: metadata.Destination.Port,
+					}
 				}
-			}
-			if metadata.Domain != "" {
-				r.logger.DebugContext(ctx, "sniffed packet protocol: ", metadata.Protocol, ", domain: ", metadata.Domain)
-			} else {
-				r.logger.DebugContext(ctx, "sniffed packet protocol: ", metadata.Protocol)
+				if metadata.Domain != "" {
+					r.logger.DebugContext(ctx, "sniffed packet protocol: ", metadata.Protocol, ", domain: ", metadata.Domain)
+				} else {
+					r.logger.DebugContext(ctx, "sniffed packet protocol: ", metadata.Protocol)
+				}
 			}
 		}
 		conn = bufio.NewCachedPacketConn(conn, buffer, destination)
@@ -821,8 +824,8 @@ func (r *Router) RoutePacketConnection(ctx context.Context, conn N.PacketConn, m
 			conn = statsService.RoutedPacketConnection(metadata.Inbound, detour.Tag(), metadata.User, conn)
 		}
 	}
-	if originAddress.IsValid() {
-		conn = fakeip.NewNATPacketConn(conn, originAddress, metadata.Destination)
+	if metadata.FakeIP {
+		conn = fakeip.NewNATPacketConn(conn, metadata.OriginDestination, metadata.Destination)
 	}
 	return detour.NewPacketConnection(ctx, conn, metadata)
 }
@@ -949,13 +952,6 @@ func (r *Router) PackageManager() tun.PackageManager {
 	return r.packageManager
 }
 
-func (r *Router) TimeFunc() func() time.Time {
-	if r.timeService == nil {
-		return nil
-	}
-	return r.timeService.TimeFunc()
-}
-
 func (r *Router) ClashServer() adapter.ClashServer {
 	return r.clashServer
 }
@@ -1004,14 +1000,7 @@ func (r *Router) notifyNetworkUpdate(event int) {
 		}
 	}
 
-	conntrack.Close()
-
-	for _, outbound := range r.outbounds {
-		listener, isListener := outbound.(adapter.InterfaceUpdateListener)
-		if isListener {
-			listener.InterfaceUpdated()
-		}
-	}
+	r.ResetNetwork()
 	return
 }
 
@@ -1023,6 +1012,10 @@ func (r *Router) ResetNetwork() error {
 		if isListener {
 			listener.InterfaceUpdated()
 		}
+	}
+
+	for _, transport := range r.transports {
+		transport.Reset()
 	}
 	return nil
 }

@@ -1,8 +1,9 @@
+//go:build with_quic
+
 package tuic
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"net"
 	"os"
@@ -10,8 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/inazumav/sing-box/common/baderror"
 	"github.com/sagernet/quic-go"
+	"github.com/sagernet/sing-box/common/baderror"
+	"github.com/sagernet/sing-box/common/qtls"
+	"github.com/sagernet/sing-box/common/tls"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"
@@ -26,7 +29,7 @@ type ClientOptions struct {
 	Context           context.Context
 	Dialer            N.Dialer
 	ServerAddress     M.Socksaddr
-	TLSConfig         *tls.Config
+	TLSConfig         tls.Config
 	UUID              uuid.UUID
 	Password          string
 	CongestionControl string
@@ -39,7 +42,7 @@ type Client struct {
 	ctx               context.Context
 	dialer            N.Dialer
 	serverAddr        M.Socksaddr
-	tlsConfig         *tls.Config
+	tlsConfig         tls.Config
 	quicConfig        *quic.Config
 	uuid              uuid.UUID
 	password          string
@@ -109,9 +112,9 @@ func (c *Client) offerNew(ctx context.Context) (*clientQUICConnection, error) {
 	}
 	var quicConn quic.Connection
 	if c.zeroRTTHandshake {
-		quicConn, err = quic.DialEarly(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), c.tlsConfig, c.quicConfig)
+		quicConn, err = qtls.DialEarly(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), c.tlsConfig, c.quicConfig)
 	} else {
-		quicConn, err = quic.Dial(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), c.tlsConfig, c.quicConfig)
+		quicConn, err = qtls.Dial(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), c.tlsConfig, c.quicConfig)
 	}
 	if err != nil {
 		udpConn.Close()
@@ -142,13 +145,13 @@ func (c *Client) offerNew(ctx context.Context) (*clientQUICConnection, error) {
 func (c *Client) clientHandshake(conn quic.Connection) error {
 	authStream, err := conn.OpenUniStream()
 	if err != nil {
-		return err
+		return E.Cause(err, "open handshake stream")
 	}
 	defer authStream.Close()
-	handshakeState := conn.ConnectionState().TLS
+	handshakeState := conn.ConnectionState()
 	tuicAuthToken, err := handshakeState.ExportKeyingMaterial(string(c.uuid[:]), []byte(c.password), 32)
 	if err != nil {
-		return err
+		return E.Cause(err, "export keying material")
 	}
 	authRequest := buf.NewSize(AuthenticateLen)
 	authRequest.WriteByte(Version)
@@ -259,6 +262,10 @@ type clientConn struct {
 	requestWritten bool
 }
 
+func (c *clientConn) NeedHandshake() bool {
+	return !c.requestWritten
+}
+
 func (c *clientConn) Read(b []byte) (n int, err error) {
 	n, err = c.stream.Read(b)
 	return n, baderror.WrapQUIC(err)
@@ -267,9 +274,13 @@ func (c *clientConn) Read(b []byte) (n int, err error) {
 func (c *clientConn) Write(b []byte) (n int, err error) {
 	if !c.requestWritten {
 		request := buf.NewSize(2 + addressSerializer.AddrPortLen(c.destination) + len(b))
+		defer request.Release()
 		request.WriteByte(Version)
 		request.WriteByte(CommandConnect)
-		addressSerializer.WriteAddrPort(request, c.destination)
+		err = addressSerializer.WriteAddrPort(request, c.destination)
+		if err != nil {
+			return
+		}
 		request.Write(b)
 		_, err = c.stream.Write(request.Bytes())
 		if err != nil {
