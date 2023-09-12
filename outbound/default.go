@@ -59,11 +59,7 @@ func NewConnection(ctx context.Context, this N.Dialer, conn net.Conn, metadata a
 	ctx = adapter.WithContext(ctx, &metadata)
 	var outConn net.Conn
 	var err error
-	if len(metadata.DestinationAddresses) > 0 {
-		outConn, err = N.DialSerial(ctx, this, N.NetworkTCP, metadata.Destination, metadata.DestinationAddresses)
-	} else {
-		outConn, err = this.DialContext(ctx, N.NetworkTCP, metadata.Destination)
-	}
+	outConn, err = this.DialContext(ctx, N.NetworkTCP, metadata.Destination)
 	if err != nil {
 		return N.ReportHandshakeFailure(conn, err)
 	}
@@ -103,24 +99,14 @@ func NewDirectConnection(ctx context.Context, router adapter.Router, this N.Dial
 func NewPacketConnection(ctx context.Context, this N.Dialer, conn N.PacketConn, metadata adapter.InboundContext) error {
 	ctx = adapter.WithContext(ctx, &metadata)
 	var outConn net.PacketConn
-	var destinationAddress netip.Addr
 	var err error
-	if len(metadata.DestinationAddresses) > 0 {
-		outConn, destinationAddress, err = N.ListenSerial(ctx, this, metadata.Destination, metadata.DestinationAddresses)
-	} else {
-		outConn, err = this.ListenPacket(ctx, metadata.Destination)
-	}
+	outConn, err = this.ListenPacket(ctx, metadata.Destination)
 	if err != nil {
 		return N.ReportHandshakeFailure(conn, err)
 	}
 	err = N.ReportHandshakeSuccess(conn)
 	if err != nil {
 		return err
-	}
-	if destinationAddress.IsValid() {
-		if natConn, loaded := common.Cast[bufio.NATPacketConn](conn); loaded {
-			natConn.UpdateDestination(destinationAddress)
-		}
 	}
 	switch metadata.Protocol {
 	case C.ProtocolSTUN:

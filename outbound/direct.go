@@ -11,7 +11,7 @@ import (
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
-	"github.com/sagernet/sing-dns"
+	dns "github.com/sagernet/sing-dns"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -194,11 +194,11 @@ func (h *Direct) ListenPacket(ctx context.Context, destination M.Socksaddr) (net
 }
 
 func (h *Direct) NewConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext) error {
-	return NewConnection(ctx, h, conn, metadata)
+	return NewDirectConnection(ctx, h.router, h, conn, metadata)
 }
 
 func (h *Direct) NewPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext) error {
-	return NewPacketConnection(ctx, h, conn, metadata)
+	return NewDirectPacketConnection(ctx, h.router, h, conn, metadata)
 }
 
 type overridePacketConn struct {
