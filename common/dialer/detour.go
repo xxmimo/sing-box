@@ -3,7 +3,6 @@ package dialer
 import (
 	"context"
 	"net"
-	"sync"
 
 	"github.com/sagernet/sing-box/adapter"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -12,11 +11,8 @@ import (
 )
 
 type DetourDialer struct {
-	router   adapter.Router
-	detour   string
-	dialer   N.Dialer
-	initOnce sync.Once
-	initErr  error
+	router adapter.Router
+	detour string
 }
 
 func NewDetour(router adapter.Router, detour string) N.Dialer {
@@ -29,14 +25,12 @@ func (d *DetourDialer) Start() error {
 }
 
 func (d *DetourDialer) Dialer() (N.Dialer, error) {
-	d.initOnce.Do(func() {
-		var loaded bool
-		d.dialer, loaded = d.router.Outbound(d.detour)
-		if !loaded {
-			d.initErr = E.New("outbound detour not found: ", d.detour)
-		}
-	})
-	return d.dialer, d.initErr
+	var err error
+	detour, loaded := d.router.Outbound(d.detour)
+	if !loaded {
+		err = E.New("outbound detour not found: ", d.detour)
+	}
+	return detour, err
 }
 
 func (d *DetourDialer) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
