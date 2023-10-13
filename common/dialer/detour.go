@@ -26,7 +26,7 @@ func (d *DetourDialer) Start() error {
 
 func (d *DetourDialer) Dialer() (N.Dialer, error) {
 	var err error
-	detour, loaded := d.router.Outbound(d.detour)
+	detour, loaded := d.router.OutboundWithProvider(d.detour)
 	if !loaded {
 		err = E.New("outbound detour not found: ", d.detour)
 	}
