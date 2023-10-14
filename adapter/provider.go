@@ -15,6 +15,7 @@ type OutboundProvider interface {
 
 	Start()
 	Close() error
+	CheckOutbounds(force bool)
 	Healthcheck(ctx context.Context, link string, force bool) (map[string]uint16, error)
 	SubscriptionInfo() map[string]uint64
 	UpdateProvider(ctx context.Context, router Router, force bool) error

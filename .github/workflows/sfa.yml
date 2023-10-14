@@ -25,9 +25,10 @@ jobs:
           go-version: 1.21.1
 
       - name: Checkout SFA Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.0
         with:
-          repository: SagerNet/sing-box-for-android
+          repository: PuerNya/sing-box-for-android
+          ref: 'test'
           path: SFA
           submodules: recursive
 
@@ -37,14 +38,17 @@ jobs:
           distribution: 'oracle'
           java-version: 20
 
-      - name: Build SFA
+      - name: Build libbox
         run: |
           git remote add sekai https://github.com/SagerNet/sing-box
           git fetch sekai
-          mkdir -p SFA/app/libs/
           make lib_install
           version=$(CGO_ENABLED=0 go run ./cmd/internal/read_tag)
           CGO_ENABLED=1 gomobile bind -v -androidapi 21 -javapkg=io.nekohasekai -libname=box -tags ${TAGS} -ldflags "-X github.com/sagernet/sing-box/constant.Version=${version} -buildid=" ./experimental/libbox
+
+      - name: Build SFA
+        run: |
+          mkdir -p SFA/app/libs/
           cp ./libbox.aar SFA/app/libs/
           cd SFA
           echo "VERSION_NAME=${version}" > local.properties

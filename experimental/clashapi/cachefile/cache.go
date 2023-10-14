@@ -199,6 +199,36 @@ func (c *CacheFile) StoreGroupExpand(group string, isExpand bool) error {
 	})
 }
 
+func (c *CacheFile) LoadProviderExpand(provider string) (isExpand bool, loaded bool) {
+	c.DB.View(func(t *bbolt.Tx) error {
+		bucket := c.bucket(t, bucketExpand)
+		if bucket == nil {
+			return nil
+		}
+		expandBytes := bucket.Get([]byte(provider))
+		if len(expandBytes) == 1 {
+			isExpand = expandBytes[0] == 1
+			loaded = true
+		}
+		return nil
+	})
+	return
+}
+
+func (c *CacheFile) StoreProviderExpand(provider string, isExpand bool) error {
+	return c.DB.Batch(func(t *bbolt.Tx) error {
+		bucket, err := c.createBucket(t, bucketExpand)
+		if err != nil {
+			return err
+		}
+		if isExpand {
+			return bucket.Put([]byte(provider), []byte{1})
+		} else {
+			return bucket.Put([]byte(provider), []byte{0})
+		}
+	})
+}
+
 func (c *CacheFile) Close() error {
 	return c.DB.Close()
 }
