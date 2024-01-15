@@ -18,9 +18,45 @@ type SniffData struct {
 	err      error
 }
 
+type ChanSafe[T any] struct {
+	status   bool
+	datachan chan T
+}
+
+func (d *ChanSafe[T]) Close() {
+	if !d.status {
+		return
+	}
+	d.status = false
+	close(d.datachan)
+}
+
+func (d *ChanSafe[T]) Push(data T) {
+	if !d.status {
+		return
+	}
+	d.datachan <- data
+}
+
+func (d *ChanSafe[T]) Pull() (T, error) {
+	if !d.status {
+		var null T
+		return null, E.New("chan is closed")
+	}
+	data := <-d.datachan
+	return data, nil
+}
+
+func NewChanSafeSniffData(length int) *ChanSafe[SniffData] {
+	return &ChanSafe[SniffData]{
+		status:   true,
+		datachan: make(chan SniffData, length),
+	}
+}
+
 type (
-	StreamSniffer = func(ctx context.Context, reader io.Reader, sniffdata chan SniffData)
-	PacketSniffer = func(ctx context.Context, packet []byte, sniffdata chan SniffData)
+	StreamSniffer = func(ctx context.Context, reader io.Reader, sniffdata *ChanSafe[SniffData])
+	PacketSniffer = func(ctx context.Context, packet []byte, sniffdata *ChanSafe[SniffData])
 )
 
 func PeekStream(ctx context.Context, conn net.Conn, buffer *buf.Buffer, timeout time.Duration, sniffers ...StreamSniffer) (*adapter.InboundContext, error) {
@@ -38,13 +74,18 @@ func PeekStream(ctx context.Context, conn net.Conn, buffer *buf.Buffer, timeout 
 	if err != nil {
 		return nil, E.Cause(err, "read payload")
 	}
-	sniffdatas := make(chan SniffData, len(sniffers))
+	sniffdata := NewChanSafeSniffData(len(sniffers))
+	defer sniffdata.Close()
 	for _, sniffer := range sniffers {
-		go sniffer(ctx, bytes.NewReader(buffer.Bytes()), sniffdatas)
+		go sniffer(ctx, bytes.NewReader(buffer.Bytes()), sniffdata)
 	}
 	for i := 0; i < len(sniffers); i++ {
-		data := <-sniffdatas
+		data, err := sniffdata.Pull()
+		if err != nil {
+			break
+		}
 		if data.metadata != nil {
+			sniffdata.Close()
 			return data.metadata, nil
 		}
 		if data.err != nil {
@@ -56,12 +97,16 @@ func PeekStream(ctx context.Context, conn net.Conn, buffer *buf.Buffer, timeout 
 
 func PeekPacket(ctx context.Context, packet []byte, sniffers ...PacketSniffer) (*adapter.InboundContext, error) {
 	var errors []error
-	sniffdatas := make(chan SniffData, len(sniffers))
+	sniffdata := NewChanSafeSniffData(len(sniffers))
+	defer sniffdata.Close()
 	for _, sniffer := range sniffers {
-		go sniffer(ctx, packet, sniffdatas)
+		go sniffer(ctx, packet, sniffdata)
 	}
 	for i := 0; i < len(sniffers); i++ {
-		data := <-sniffdatas
+		data, err := sniffdata.Pull()
+		if err != nil {
+			break
+		}
 		if data.metadata != nil {
 			return data.metadata, nil
 		}

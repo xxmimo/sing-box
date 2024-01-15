@@ -10,14 +10,9 @@ import (
 	"github.com/sagernet/sing/common/bufio"
 )
 
-func TLSClientHello(ctx context.Context, reader io.Reader, sniffdata chan SniffData) {
-	data := SniffData{
-		metadata: nil,
-		err:      nil,
-	}
-	defer func() {
-		sniffdata <- data
-	}()
+func TLSClientHello(ctx context.Context, reader io.Reader, sniffdata *ChanSafe[SniffData]) {
+	var data SniffData
+	defer sniffdata.Push(data)
 	var clientHello *tls.ClientHelloInfo
 	err := tls.Server(bufio.NewReadOnlyConn(reader), &tls.Config{
 		GetConfigForClient: func(argHello *tls.ClientHelloInfo) (*tls.Config, error) {

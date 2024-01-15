@@ -17,15 +17,10 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-func QUICClientHello(ctx context.Context, packet []byte, sniffdata chan SniffData) {
+func QUICClientHello(ctx context.Context, packet []byte, sniffdata *ChanSafe[SniffData]) {
 	reader := bytes.NewReader(packet)
-	data := SniffData{
-		metadata: nil,
-		err:      nil,
-	}
-	defer func() {
-		sniffdata <- data
-	}()
+	var data SniffData
+	defer sniffdata.Push(data)
 	typeByte, err := reader.ReadByte()
 	if err != nil {
 		data.err = err
@@ -341,9 +336,10 @@ find:
 		data.err = E.New("bad fragments")
 		return
 	}
-	tlsdatachan := make(chan SniffData, 1)
+	tlsdatachan := NewChanSafeSniffData(1)
 	TLSClientHello(ctx, io.MultiReader(readers...), tlsdatachan)
-	tlsdata := <-tlsdatachan
+	tlsdata, _ := tlsdatachan.Pull()
+	tlsdatachan.Close()
 	metadata := tlsdata.metadata
 	err = tlsdata.err
 	if err != nil {

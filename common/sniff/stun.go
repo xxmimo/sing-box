@@ -9,15 +9,10 @@ import (
 	C "github.com/sagernet/sing-box/constant"
 )
 
-func STUNMessage(ctx context.Context, packet []byte, sniffdata chan SniffData) {
+func STUNMessage(ctx context.Context, packet []byte, sniffdata *ChanSafe[SniffData]) {
 	pLen := len(packet)
-	data := SniffData{
-		metadata: nil,
-		err:      nil,
-	}
-	defer func() {
-		sniffdata <- data
-	}()
+	var data SniffData
+	defer sniffdata.Push(data)
 	if pLen < 20 {
 		data.err = os.ErrInvalid
 		return

@@ -11,14 +11,9 @@ import (
 	"github.com/sagernet/sing/protocol/http"
 )
 
-func HTTPHost(ctx context.Context, reader io.Reader, sniffdata chan SniffData) {
-	data := SniffData{
-		metadata: nil,
-		err:      nil,
-	}
-	defer func() {
-		sniffdata <- data
-	}()
+func HTTPHost(ctx context.Context, reader io.Reader, sniffdata *ChanSafe[SniffData]) {
+	var data SniffData
+	defer sniffdata.Push(data)
 	request, err := http.ReadRequest(std_bufio.NewReader(reader))
 	if err != nil {
 		data.err = err
