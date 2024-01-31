@@ -51,6 +51,10 @@ type Router interface {
 	PackageManager() tun.PackageManager
 	WIFIState() WIFIState
 	Rules() []Rule
+	Rule(uuid string) (Rule, bool)
+	DNSRules() []DNSRule
+	DNSRule(uuid string) (DNSRule, bool)
+	DefaultDNSServer() string
 
 	ClashServer() ClashServer
 	SetClashServer(server ClashServer)
@@ -76,6 +80,9 @@ type HeadlessRule interface {
 type Rule interface {
 	HeadlessRule
 	Service
+	Disabled() bool
+	UUID() string
+	ChangeStatus()
 	Type() string
 	UpdateGeosite() error
 	Outbound() string
