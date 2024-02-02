@@ -848,7 +848,7 @@ func (r *Router) RouteConnection(ctx context.Context, conn net.Conn, metadata ad
 		if sniffMetadata != nil {
 			metadata.Protocol = sniffMetadata.Protocol
 			metadata.Domain = sniffMetadata.Domain
-			if metadata.InboundOptions.SniffOverrideDestination && M.IsDomainName(metadata.Domain) {
+			if !metadata.Destination.IsFqdn() && metadata.InboundOptions.SniffOverrideDestination && M.IsDomainName(metadata.Domain) {
 				metadata.Destination = M.Socksaddr{
 					Fqdn: metadata.Domain,
 					Port: metadata.Destination.Port,
@@ -975,7 +975,7 @@ func (r *Router) RoutePacketConnection(ctx context.Context, conn N.PacketConn, m
 			if sniffMetadata != nil {
 				metadata.Protocol = sniffMetadata.Protocol
 				metadata.Domain = sniffMetadata.Domain
-				if metadata.InboundOptions.SniffOverrideDestination && M.IsDomainName(metadata.Domain) {
+				if !metadata.Destination.IsFqdn() && metadata.InboundOptions.SniffOverrideDestination && M.IsDomainName(metadata.Domain) {
 					metadata.Destination = M.Socksaddr{
 						Fqdn: metadata.Domain,
 						Port: metadata.Destination.Port,
