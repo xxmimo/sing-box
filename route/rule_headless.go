@@ -141,6 +141,10 @@ func NewDefaultHeadlessRule(router adapter.Router, options option.DefaultHeadles
 	return rule, nil
 }
 
+func (r *DefaultHeadlessRule) UseIPRule() bool {
+	return r.useIPRule
+}
+
 var _ adapter.HeadlessRule = (*LogicalHeadlessRule)(nil)
 
 type LogicalHeadlessRule struct {

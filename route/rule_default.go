@@ -45,8 +45,10 @@ type RuleItem interface {
 func NewDefaultRule(router adapter.Router, logger log.ContextLogger, options option.DefaultRule) (*DefaultRule, error) {
 	rule := &DefaultRule{
 		abstractDefaultRule{
-			invert:   options.Invert,
-			outbound: options.Outbound,
+			invert:      options.Invert,
+			skipResolve: options.SkipResolve,
+			outbound:    options.Outbound,
+			useIPRule:   false,
 		},
 	}
 	if len(options.Inbound) > 0 {
@@ -111,6 +113,7 @@ func NewDefaultRule(router adapter.Router, logger log.ContextLogger, options opt
 		item := NewGeoIPItem(router, logger, false, options.GeoIP)
 		rule.destinationIPCIDRItems = append(rule.destinationIPCIDRItems, item)
 		rule.allItems = append(rule.allItems, item)
+		rule.useIPRule = true
 	}
 	if len(options.SourceIPCIDR) > 0 {
 		item, err := NewIPCIDRItem(true, options.SourceIPCIDR)
@@ -132,6 +135,7 @@ func NewDefaultRule(router adapter.Router, logger log.ContextLogger, options opt
 		}
 		rule.destinationIPCIDRItems = append(rule.destinationIPCIDRItems, item)
 		rule.allItems = append(rule.allItems, item)
+		rule.useIPRule = true
 	}
 	if options.IPIsPrivate {
 		item := NewIPIsPrivateItem(false)
@@ -207,6 +211,7 @@ func NewDefaultRule(router adapter.Router, logger log.ContextLogger, options opt
 	if len(options.RuleSet) > 0 {
 		item := NewRuleSetItem(router, options.RuleSet, options.RuleSetIPCIDRMatchSource)
 		rule.items = append(rule.items, item)
+		rule.ruleSetItems = append(rule.ruleSetItems, item)
 		rule.allItems = append(rule.allItems, item)
 	}
 	return rule, nil
@@ -221,9 +226,11 @@ type LogicalRule struct {
 func NewLogicalRule(router adapter.Router, logger log.ContextLogger, options option.LogicalRule) (*LogicalRule, error) {
 	r := &LogicalRule{
 		abstractLogicalRule{
-			rules:    make([]adapter.HeadlessRule, len(options.Rules)),
-			invert:   options.Invert,
-			outbound: options.Outbound,
+			rules:       make([]adapter.HeadlessRule, len(options.Rules)),
+			invert:      options.Invert,
+			skipResolve: options.SkipResolve,
+			outbound:    options.Outbound,
+			useIPRule:   false,
 		},
 	}
 	switch options.Mode {

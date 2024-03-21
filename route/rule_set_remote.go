@@ -34,6 +34,7 @@ type RemoteRuleSet struct {
 	updateInterval time.Duration
 	dialer         N.Dialer
 	rules          []adapter.HeadlessRule
+	useIPRule      bool
 	lastUpdated    time.Time
 	lastEtag       string
 	updateTicker   *time.Ticker
@@ -143,10 +144,11 @@ func (s *RemoteRuleSet) loadBytes(content []byte) error {
 	}
 	rules := make([]adapter.HeadlessRule, len(plainRuleSet.Rules))
 	for i, ruleOptions := range plainRuleSet.Rules {
-		rules[i], err = NewHeadlessRule(s.router, ruleOptions)
+		rule, err := NewHeadlessRule(s.router, ruleOptions)
 		if err != nil {
 			return E.Cause(err, "parse rule_set.rules.[", i, "]")
 		}
+		rules[i] = rule
 	}
 	s.metadata.ContainsProcessRule = hasHeadlessRule(plainRuleSet.Rules, isProcessHeadlessRule)
 	s.metadata.ContainsWIFIRule = hasHeadlessRule(plainRuleSet.Rules, isWIFIHeadlessRule)
@@ -254,6 +256,10 @@ func (s *RemoteRuleSet) fetchOnce(ctx context.Context, startContext adapter.Rule
 	}
 	s.logger.Info("updated rule-set ", s.options.Tag)
 	return nil
+}
+
+func (s *RemoteRuleSet) ContainsDestinationIPCIDRRule() bool {
+	return s.metadata.ContainsIPCIDRRule
 }
 
 func (s *RemoteRuleSet) Close() error {

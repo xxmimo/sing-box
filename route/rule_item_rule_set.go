@@ -15,6 +15,7 @@ type RuleSetItem struct {
 	router            adapter.Router
 	tagList           []string
 	setList           []adapter.RuleSet
+	useIPRule         bool
 	ipcidrMatchSource bool
 }
 
