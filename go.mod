@@ -55,6 +55,8 @@ require (
 	howett.net/plist v1.0.1
 )
 
+replace github.com/sagernet/sing v0.4.0-beta.3 => github.com/puernya/sing v0.0.0-20240315152407-4d521945d243
+
 //replace github.com/sagernet/sing => ../sing
 
 require (
